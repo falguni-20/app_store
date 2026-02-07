@@ -23,7 +23,7 @@ export default function Login() {
             });
 
             setAuth(res.data);
-            navigate("/");
+            navigate("/tenant");
         } catch {
             setErr("Invalid email or password");
         }
