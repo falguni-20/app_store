@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+//////////////////////
+// USERS
+//////////////////////
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
+  orgRoles       UserOrganization[]
+  instituteRoles UserInstitute[]
+}
+
+//////////////////////
+// ORGANIZATIONS
+//////////////////////
+
+model Organization {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+
+  institutes Institute[]
+  users      UserOrganization[]
+}
+
+//////////////////////
+// INSTITUTES
+//////////////////////
+
+model Institute {
+  id             Int      @id @default(autoincrement())
+  name           String
+  organizationId Int
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  users UserInstitute[]
+  installedApps InstituteInstalledApp[]
+
+  @@index([organizationId])
+}
+
+//////////////////////
+// USER ↔ ORG (ROLE MAP)
+//////////////////////
+
+model UserOrganization {
+  id             Int    @id @default(autoincrement())
+  userId         Int
+  organizationId Int
+  role           OrgRole
+
+  user         User         @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
+}
+
+enum OrgRole {
+  SUPER_ADMIN
+  ORG_ADMIN
+  USER
+}
+
+//////////////////////
+// USER ↔ INSTITUTE (ROLE MAP)
+//////////////////////
+
+model UserInstitute {
+  id          Int @id @default(autoincrement())
+  userId      Int
+  instituteId Int
+  role        InstituteRole
+
+  user      User      @relation(fields: [userId], references: [id])
+  institute Institute @relation(fields: [instituteId], references: [id])
+
+  @@unique([userId, instituteId])
+}
+
+enum InstituteRole {
+  INSTITUTE_ADMIN
+  USER
+}
+
+//////////////////////
+// APPS
+//////////////////////
+
+model App {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  category    String
+  launchUrl   String
+  webhookUrl  String
+  logoUrl     String?
+
+  requiredPermissions Json   // JSONB
+  createdAt           DateTime @default(now())
+
+  installations InstituteInstalledApp[]
+}
+
+//////////////////////
+// INSTITUTE INSTALLED APPS
+//////////////////////
+
+model InstituteInstalledApp {
+  id          Int      @id @default(autoincrement())
+  instituteId Int
+  appId       Int      @unique
+
+  settings    Json      // JSONB config
+  installedAt DateTime  @default(now())
+  installedBy Int       // userId
+
+  institute Institute @relation(fields: [instituteId], references: [id])
+  app       App       @relation(fields: [appId], references: [id])
+
+  webhookLogs WebhookLog[]
+
+  @@unique([instituteId, appId])
+  @@index([instituteId])
+  @@index([appId])
+}
+
+//////////////////////
+// WEBHOOK LOGS
+//////////////////////
+
+model WebhookLog {
+  id          Int      @id @default(autoincrement())
+  instituteId Int
+  appId       Int
+
+  payload    Json
+  statusCode Int
+  receivedAt DateTime @default(now())
+
+  instituteApp InstituteInstalledApp? @relation(fields: [appId], references: [appId])
+
+  @@index([instituteId])
+  @@index([appId])
+}
