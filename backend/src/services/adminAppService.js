@@ -1,16 +1,50 @@
 const { prisma } = require("../config/db");
 const { generateWebhookSecret } = require("../utils/webhookSender");
 
-// List all apps
 exports.listAllApps = () => {
   return prisma.app.findMany({ orderBy: { createdAt: "desc" } });
 };
 
-// Create app
+exports.listAllAppsWithPagination = async (page = 1, limit = 10, category = null, searchTerm = null) => {
+  const skip = (page - 1) * limit;
+
+  // Build the where clause with optional filters
+  let whereClause = {};
+  
+  if (category) {
+    whereClause.category = category;
+  }
+  
+  if (searchTerm) {
+    whereClause.OR = [
+      { name: { contains: searchTerm, mode: 'insensitive' } },
+      { description: { contains: searchTerm, mode: 'insensitive' } },
+      { category: { contains: searchTerm, mode: 'insensitive' } }
+    ];
+  }
+
+  const [apps, total] = await prisma.$transaction([
+    prisma.app.findMany({
+      where: whereClause,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.app.count({ where: whereClause }),
+  ]);
+
+  return {
+    apps,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit)
+  };
+};
+
 exports.createApp = (data) => {
-  // Generate a webhook secret if one isn't provided
   const webhookSecret = data.webhookSecret || generateWebhookSecret();
-  return prisma.app.create({ 
+  return prisma.app.create({
     data: {
       ...data,
       webhookSecret
@@ -18,17 +52,14 @@ exports.createApp = (data) => {
   });
 };
 
-// Update app
 exports.updateApp = async (id, data) => {
-  // If logoUrl is not provided in the update, remove it from the update data to preserve the existing value
   if (!data.logoUrl) {
     delete data.logoUrl;
   }
-  
+
   return prisma.app.update({ where: { id }, data });
 };
 
-// Delete app
 exports.deleteApp = (id) => {
   return prisma.app.delete({ where: { id } });
 };

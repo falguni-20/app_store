@@ -24,7 +24,6 @@ export default function TenantSelect() {
 
   // Define handleTenantSelection using useCallback to prevent re-creation on every render
   const handleTenantSelection = useCallback((orgId, instituteId) => {
-    console.log("handleTenantSelection called with:", { orgId, instituteId });
     setTenant({
       orgId: orgId,
       instituteId: instituteId,
@@ -35,13 +34,12 @@ export default function TenantSelect() {
     const selectedOrg = organizations.find(o => o.orgId === orgId);
     const selectedInst = institutes.find(i => i.instituteId === instituteId);
 
-    console.log("Selected Org for redirection:", selectedOrg);
-    console.log("Selected Inst for redirection:", selectedInst);
-
     if (selectedOrg?.role === "SUPER_ADMIN") {
+      // Platform super admin goes directly to admin apps page
       navigate("/admin/apps");
-    } else if (selectedOrg?.role === "ORG_ADMIN") { // Organization Admin
-      navigate("/organization/institutes"); // Org admins go to see/select institutes in their org
+    } else if (selectedOrg?.role === "ORG_ADMIN") {
+      // Organization admin goes to organization admin page
+      navigate(`/organization/${orgId}/admin`);
     } else if (selectedInst?.role === "INSTITUTE_ADMIN") { // Institute Admin
       navigate("/institute/apps");
     } else { // Regular User
@@ -49,17 +47,9 @@ export default function TenantSelect() {
     }
   }, [setTenant, navigate, organizations, institutes]); // Dependencies for useCallback
 
-  // --- Start Debugging Logs ---
-  console.log("--- TenantSelect Component State ---");
-  console.log("User:", user);
-  // No longer need Org Roles and Institute Roles derived if directly using user.organizations/institutes
-  
-  // --- End Debugging Logs ---
-
   useEffect(() => {
     // Auto-select if only one organization
     if (organizations.length === 1 && !selectedOrgId) {
-      console.log("Auto-selecting single organization:", organizations[0].orgId);
       setSelectedOrgId(organizations[0].orgId.toString());
     }
   }, [organizations, selectedOrgId, handleTenantSelection]);
@@ -67,7 +57,6 @@ export default function TenantSelect() {
   useEffect(() => {
     // Auto-select if only one institute available for the selected organization
     if (availableInstitutes.length === 1 && !selectedInstId) {
-      console.log("Auto-selecting single institute:", availableInstitutes[0].instituteId);
       setSelectedInstId(availableInstitutes[0].instituteId.toString());
     }
   }, [availableInstitutes, selectedInstId, handleTenantSelection]);
@@ -76,7 +65,6 @@ export default function TenantSelect() {
     // If both are auto-selected, submit automatically
     // The `organizations.length === 1 && availableInstitutes.length === 1` condition is important here.
     if (selectedOrgId && selectedInstId && organizations.length === 1 && availableInstitutes.length === 1) {
-      console.log("Auto-submitting tenant selection.");
       handleTenantSelection(Number(selectedOrgId), Number(selectedInstId));
     }
   }, [selectedOrgId, selectedInstId, organizations, availableInstitutes, handleTenantSelection]);
@@ -84,7 +72,6 @@ export default function TenantSelect() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("handleSubmit called. selectedOrgId:", selectedOrgId, "selectedInstId:", selectedInstId);
 
     const selectedOrg = organizations.find(o => o.orgId === Number(selectedOrgId));
     const isSuperAdminWithNoInstitutes = selectedOrg?.role === "SUPER_ADMIN" && institutes.length === 0;
@@ -99,7 +86,6 @@ export default function TenantSelect() {
   };
 
   if (!user) {
-    console.log("User not found, redirecting to /login");
     // This navigation should ideally be in a useEffect or handled by ProtectedRoute
     // For now, keep as is to avoid breaking existing flow until user confirms
     navigate("/login");
@@ -109,7 +95,12 @@ export default function TenantSelect() {
   return (
     <div className="tenant-page">
       <form className="tenant-card" onSubmit={handleSubmit}>
-        <h2>Select Organization & Institute</h2>
+        <div className="form-header">
+          <button onClick={() => navigate('/login')} className="back-button">
+            &larr; Back to Login
+          </button>
+          <h2>Select Organization & Institute</h2>
+        </div>
 
         {organizations.length > 0 && ( // Condition already updated
           <>
@@ -118,7 +109,6 @@ export default function TenantSelect() {
               className="tenant-select"
               value={selectedOrgId}
               onChange={(e) => {
-                console.log("Organization selected:", e.target.value);
                 setSelectedOrgId(e.target.value);
                 setSelectedInstId(""); // Reset institute when organization changes
               }}
@@ -140,7 +130,6 @@ export default function TenantSelect() {
               className="tenant-select"
               value={selectedInstId}
               onChange={(e) => {
-                console.log("Institute selected:", e.target.value);
                 setSelectedInstId(e.target.value);
               }}
             >

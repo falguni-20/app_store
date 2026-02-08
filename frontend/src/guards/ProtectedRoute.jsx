@@ -21,7 +21,8 @@ export default function ProtectedRoute({ children, adminOnly, orgAdminOnly }) { 
 
   // Check for ORG_ADMIN access
   if (orgAdminOnly) {
-    const isOrgAdmin = user?.organizations?.some(org => org.orgId === orgId && org.role === "ORG_ADMIN");
+    // Allow access if user has ORG_ADMIN role in any of their organizations
+    const isOrgAdmin = user?.organizations?.some(org => org.role === "ORG_ADMIN" || org.role === "SUPER_ADMIN");
     if (!isOrgAdmin) {
         return <Navigate to="/" replace />;
     }

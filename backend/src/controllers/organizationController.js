@@ -1,12 +1,34 @@
 const organizationService = require("../services/organizationService");
 const { AppError } = require("../utils/errorHandler");
 
+exports.listAllOrganizations = async (req, res, next) => {
+  try {
+    const organizations = await organizationService.getAllOrganizations();
+    res.json(organizations);
+  } catch (err) {
+    next(new AppError(err.message, err.statusCode || 500));
+  }
+};
+
+exports.listInstalledAppsByOrganization = async (req, res, next) => {
+  try {
+    const orgIdFromParams = Number(req.params.orgId);
+
+    if (req.orgId !== orgIdFromParams) {
+      return next(new AppError("Forbidden: Access to this organization is denied.", 403));
+    }
+
+    const installedApps = await organizationService.getInstalledAppsByOrganization(orgIdFromParams);
+    res.json(installedApps);
+  } catch (err) {
+    next(new AppError(err.message, err.statusCode || 500));
+  }
+};
+
 exports.listInstitutesByOrganization = async (req, res, next) => {
   try {
     const orgIdFromParams = Number(req.params.orgId);
 
-    // tenantAuth middleware already ensures req.orgId is correct and user has access
-    // We double check here to make sure params match the tenant
     if (req.orgId !== orgIdFromParams) {
       return next(new AppError("Forbidden: Access to this organization is denied.", 403));
     }
@@ -22,7 +44,7 @@ exports.createInstitute = async (req, res, next) => {
   try {
     const orgIdFromParams = Number(req.params.orgId);
     const { name } = req.body;
-    const userId = req.user.id; // User creating the institute
+    const userId = req.user.id;
 
     if (req.orgId !== orgIdFromParams) {
       return next(new AppError("Forbidden: Access to this organization is denied.", 403));
@@ -39,7 +61,6 @@ exports.createInstitute = async (req, res, next) => {
   }
 };
 
-// Get users in an organization
 exports.getUsersInOrganization = async (req, res, next) => {
   try {
     const orgIdFromParams = Number(req.params.orgId);
@@ -55,7 +76,6 @@ exports.getUsersInOrganization = async (req, res, next) => {
   }
 };
 
-// Invite user to organization
 exports.inviteUserToOrganization = async (req, res, next) => {
   try {
     const orgIdFromParams = Number(req.params.orgId);
@@ -66,7 +86,6 @@ exports.inviteUserToOrganization = async (req, res, next) => {
       return next(new AppError("Forbidden: Access to this organization is denied.", 403));
     }
 
-    // Validate role
     const validRoles = ['USER', 'ORG_ADMIN'];
     if (!validRoles.includes(role)) {
       return next(new AppError("Invalid role. Valid roles are: USER, ORG_ADMIN", 400));

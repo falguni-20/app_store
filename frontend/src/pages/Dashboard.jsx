@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import toast from "react-hot-toast";
 import api from "../api/client";
 import { useAuthStore } from "../store/authStore";
 import { useTenantStore } from "../store/tenantStore";
+import Loader from '../components/Loader';
 import "./dashboard.css";
 
 export default function Dashboard() {
@@ -15,7 +17,8 @@ export default function Dashboard() {
     queryKey: ["apps"],
     queryFn: async () => {
       const res = await api.get("/apps");
-      return res.data;
+      // The backend returns an object with apps property, so we need to extract it
+      return Array.isArray(res.data) ? res.data : res.data.apps || [];
     },
   });
 
@@ -28,8 +31,7 @@ export default function Dashboard() {
       // Open app in iframe
       setIframeUrl(`${launchUrl}?token=${launchToken}`);
     } catch (err) {
-      console.error("Failed to launch app", err);
-      alert("Failed to launch app: " + (err.response?.data?.message || err.message));
+      toast.error("Failed to launch app: " + (err.response?.data?.message || err.message));
     }
   };
 
@@ -38,8 +40,17 @@ export default function Dashboard() {
     setIframeUrl("");
   };
 
-  if (isLoading) return <div className="loading">Loading apps...</div>;
-  if (error) return <div className="error">Failed to load apps</div>;
+
+
+  if (isLoading) return (
+    <div className="dashboard-container">
+      <Loader message="Loading apps..." />
+    </div>
+  );
+  if (error) {
+    toast.error("Failed to load apps.");
+    return <div className="error">Failed to load apps.</div>;
+  }
 
   return (
     <div className="dashboard-container">

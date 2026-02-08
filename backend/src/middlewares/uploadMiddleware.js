@@ -6,12 +6,11 @@ const storage = multer.diskStorage({
     cb(null, "public/uploads/");
   },
   filename: (req, file, cb) => {
-    // Sanitize filename to remove special characters that might cause URL issues
     const sanitizedFilename = file.originalname
       .toLowerCase()
-      .replace(/\s+/g, '-')  // Replace spaces with hyphens
-      .replace(/[^\w\-\.]+/g, ''); // Remove any non-word characters except hyphens and dots
-    
+      .replace(/\s+/g, '-')
+      .replace(/[^\w\-\.]+/g, '');
+
     cb(null, `${Date.now()}-${sanitizedFilename}`);
   },
 });

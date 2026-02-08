@@ -4,6 +4,8 @@ import api from "../api/client";
 import { useState } from "react";
 import { useAuthStore } from "../store/authStore";
 import { useTenantStore } from "../store/tenantStore";
+import toast from "react-hot-toast";
+import Loader from '../components/Loader';
 import "./appDetailPage.css";
 
 export default function AppDetailPage() {
@@ -25,7 +27,11 @@ export default function AppDetailPage() {
   // Fetch installed apps for the current institute to check installation status
   const { data: installedApps = [], isLoading: isLoadingInstalledApps } = useQuery({
     queryKey: ["installedApps"],
-    queryFn: async () => (await api.get("/apps")).data,
+    queryFn: async () => {
+      const response = await api.get("/apps");
+      // The backend returns an object with apps property, so we need to extract it
+      return Array.isArray(response.data) ? response.data : response.data.apps || [];
+    },
   });
 
   const isInstalled = installedApps.some((inst) => inst.app.id === app?.id);
@@ -43,11 +49,11 @@ export default function AppDetailPage() {
       api.post("/institute/apps/install", { appId: Number(appId), settings: JSON.parse(data.settings || '{}') }),
     onSuccess: () => {
       queryClient.invalidateQueries(["installedApps"]); // Re-fetch installed apps
-      alert("App installed successfully!");
+      toast.success("App installed successfully!");
       navigate("/apps"); // Go back to app store
     },
     onError: (error) => {
-        alert("Error installing app: " + (error.response?.data?.message || error.message));
+        toast.error("Error installing app: " + (error.response?.data?.message || error.message));
     }
   });
 
@@ -67,7 +73,13 @@ export default function AppDetailPage() {
     setLaunchedApp(null);
   };
 
-  if (isLoadingApp || isLoadingInstalledApps) return <div className="loading">Loading app details...</div>;
+
+
+  if (isLoadingApp || isLoadingInstalledApps) return (
+    <div className="app-detail-page-container">
+      <Loader message="Loading app details..." />
+    </div>
+  );
   if (appError) return <div className="error">Error loading app: {appError.message}</div>;
   if (!app) return <div className="error">App not found.</div>;
 
@@ -86,13 +98,9 @@ export default function AppDetailPage() {
         <div className="app-detail-card">
           <div className="app-detail-header-info">
             <div className="app-detail-icon">
-              {app.logoUrl ? (
-                <img src={app.logoUrl} alt={app.name} className="app-detail-logo" />
-              ) : (
-                <div className="app-logo-placeholder">
-                  {app.name.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <div className="app-logo-placeholder">
+                {app.name.charAt(0).toUpperCase()}
+              </div>
             </div>
             <div className="app-detail-main-info">
               <h1>{app.name}</h1>

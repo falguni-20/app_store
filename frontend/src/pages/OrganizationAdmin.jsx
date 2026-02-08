@@ -1,217 +1,176 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useParams } from "react-router-dom";
 import api from "../api/client";
 import { useAuthStore } from "../store/authStore";
 import { useTenantStore } from "../store/tenantStore";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { FaBuilding, FaUsers, FaCog, FaPlus, FaUserPlus, FaEdit, FaTrashAlt, FaChevronRight, FaArrowLeft } from "react-icons/fa";
+import { ClipLoader } from 'react-spinners';
+import Loader from '../components/Loader';
 import "./organizationAdmin.css";
 
 export default function OrganizationAdmin() {
   const navigate = useNavigate();
+  const { orgId } = useParams(); // Get orgId from route parameters
   const user = useAuthStore((state) => state.user);
-  const { orgId, setTenant } = useTenantStore((state) => state);
+  const { orgId: currentOrgId, instituteId } = useTenantStore((state) => state);
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState("institutes"); // institutes, users, settings
-  const [showCreateInstituteForm, setShowCreateInstituteForm] = useState(false);
-  const [newInstituteName, setNewInstituteName] = useState("");
-  const [showInviteUserForm, setShowInviteUserForm] = useState(false);
+  // Check if user has access to this organization
+  const hasAccess = user?.organizations?.some(
+    (org) => org.orgId === parseInt(orgId) && (org.role === "ORG_ADMIN" || org.role === "SUPER_ADMIN")
+  );
+
+  if (!hasAccess) {
+    return (
+      <div className="organization-admin-container">
+        <div className="access-denied">Access denied</div>
+      </div>
+    );
+  }
+
+  // State for managing tabs and forms
+  const [activeTab, setActiveTab] = useState("users"); // users, institutes, apps
+  const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("USER");
-  const [showUpdateOrgForm, setShowUpdateOrgForm] = useState(false);
-  const [updatedOrgName, setUpdatedOrgName] = useState("");
 
-  // Fetch institutes for the current organization
-  const { data: institutes = [], isLoading: institutesLoading } = useQuery({
-    queryKey: ["organizationInstitutes", orgId],
+  // Fetch organization details
+  const { data: organization, isLoading: isLoadingOrg } = useQuery({
+    queryKey: ["organization", orgId],
     queryFn: async () => {
-      if (!orgId) return [];
-      const response = await api.get(`/organizations/${orgId}/institutes`);
+      const response = await api.get(`/organizations/${orgId}`);
       return response.data;
     },
     enabled: !!orgId,
   });
 
-  // Fetch users in the current organization
-  const { data: orgUsers = [], isLoading: usersLoading } = useQuery({
+  // Fetch organization users
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ["organizationUsers", orgId],
     queryFn: async () => {
-      if (!orgId) return [];
       const response = await api.get(`/organizations/${orgId}/users`);
       return response.data;
     },
     enabled: !!orgId,
   });
 
-  // Create institute mutation
-  const createInstituteMutation = useMutation({
-    mutationFn: (instituteName) =>
-      api.post(`/organizations/${orgId}/institutes`, { name: instituteName }),
-    onSuccess: () => {
-      queryClient.invalidateQueries(["organizationInstitutes", orgId]);
-      setNewInstituteName("");
-      setShowCreateInstituteForm(false);
+  // Fetch organization institutes
+  const { data: institutes = [], isLoading: isLoadingInstitutes } = useQuery({
+    queryKey: ["organizationInstitutes", orgId],
+    queryFn: async () => {
+      const response = await api.get(`/organizations/${orgId}/institutes`);
+      return response.data;
     },
-    onError: (error) => {
-      alert("Error creating institute: " + (error.response?.data?.message || error.message));
-    }
+    enabled: !!orgId,
   });
 
-  // Invite user to organization mutation
+  // Invite user mutation
   const inviteUserMutation = useMutation({
-    mutationFn: ({ email, role }) =>
-      api.post(`/organizations/${orgId}/users/invite`, { email, role }),
+    mutationFn: async ({ email, role }) => {
+      const response = await api.post(`/organizations/${orgId}/invite`, {
+        email,
+        role,
+      });
+      return response.data;
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries(["organizationUsers", orgId]);
+      queryClient.invalidateQueries({ queryKey: ["organizationUsers", orgId] });
+      toast.success("User invited successfully");
+      setShowInviteForm(false);
       setInviteEmail("");
       setInviteRole("USER");
-      setShowInviteUserForm(false);
     },
     onError: (error) => {
-      alert("Error inviting user: " + (error.response?.data?.message || error.message));
-    }
-  });
-
-  // Update organization mutation
-  const updateOrganizationMutation = useMutation({
-    mutationFn: ({ orgId, name }) =>
-      api.put(`/organization-management/${orgId}`, { name }),
-    onSuccess: () => {
-      queryClient.invalidateQueries(["organizationUsers"]); // This might trigger a re-fetch that updates user data
-      setUpdatedOrgName("");
-      setShowUpdateOrgForm(false);
-      // Note: We may need to update the user's organization name in the store
-      // For now, we'll show a success message
-      alert("Organization updated successfully!");
+      toast.error(error.response?.data?.message || "Failed to invite user");
     },
-    onError: (error) => {
-      alert("Error updating organization: " + (error.response?.data?.message || error.message));
-    }
   });
 
-  const handleCreateInstituteSubmit = (e) => {
+  // Handle invite form submission
+  const handleInviteSubmit = (e) => {
     e.preventDefault();
-    if (newInstituteName.trim()) {
-      createInstituteMutation.mutate(newInstituteName);
+    if (!inviteEmail) {
+      toast.error("Please enter an email address");
+      return;
     }
+    
+    inviteUserMutation.mutate({ email: inviteEmail, role: inviteRole });
   };
 
-  const handleInviteUserSubmit = (e) => {
-    e.preventDefault();
-    if (inviteEmail.trim()) {
-      inviteUserMutation.mutate({ email: inviteEmail, role: inviteRole });
-    }
-  };
-
-  const handleUpdateOrgSubmit = (e) => {
-    e.preventDefault();
-    if (updatedOrgName.trim()) {
-      updateOrganizationMutation.mutate({ orgId, name: updatedOrgName });
-    }
-  };
-
-  const handleInstituteClick = (selectedInstituteId) => {
-    setTenant({ orgId, instituteId: selectedInstituteId });
-
-    const userInstituteMembership = user?.institutes.find(
-      (inst) => inst.instituteId === selectedInstituteId && inst.organizationId === orgId
-    );
-    const instituteRole = userInstituteMembership?.role;
-
-    if (instituteRole === "INSTITUTE_ADMIN") {
-      navigate("/institute/apps");
-    } else if (instituteRole === "USER") {
-      navigate("/apps");
-    } else {
-      navigate("/apps");
-    }
-  };
-
-  const currentOrg = user?.organizations.find(o => o.orgId === orgId);
-
-  if (institutesLoading || usersLoading) return <div>Loading...</div>;
+  // Loading state
+  if (isLoadingOrg || isLoadingUsers || isLoadingInstitutes) {
+    return <Loader message="Loading organization data..." />;
+  }
 
   return (
     <div className="organization-admin-container">
-      <h2>Organization Admin: {currentOrg?.orgName}</h2>
-      
-      <div className="tabs">
-        <button 
-          className={activeTab === "institutes" ? "active-tab" : ""} 
-          onClick={() => setActiveTab("institutes")}
-        >
-          Institutes
-        </button>
-        <button 
-          className={activeTab === "users" ? "active-tab" : ""} 
-          onClick={() => setActiveTab("users")}
-        >
-          Users
-        </button>
-        <button 
-          className={activeTab === "settings" ? "active-tab" : ""} 
-          onClick={() => setActiveTab("settings")}
-        >
-          Settings
-        </button>
+      <div className="header-section">
+        <div className="org-header">
+          <button 
+            className="back-button" 
+            onClick={() => navigate(-1)}
+            title="Go back"
+          >
+            <FaArrowLeft />
+          </button>
+          <h2>
+            <FaBuilding className="icon" /> {organization?.name} Administration
+          </h2>
+        </div>
+      </div>
+
+      <div className="tabs-container">
+        <div className="tabs">
+          <button 
+            className={`tab ${activeTab === "users" ? "active" : ""}`}
+            onClick={() => setActiveTab("users")}
+          >
+            <FaUsers className="icon" /> Users
+          </button>
+          <button 
+            className={`tab ${activeTab === "institutes" ? "active" : ""}`}
+            onClick={() => setActiveTab("institutes")}
+          >
+            <FaBuilding className="icon" /> Institutes
+          </button>
+          <button 
+            className={`tab ${activeTab === "apps" ? "active" : ""}`}
+            onClick={() => setActiveTab("apps")}
+          >
+            <FaCog className="icon" /> Apps
+          </button>
+        </div>
       </div>
 
       <div className="tab-content">
-        {activeTab === "institutes" && (
-          <div className="institutes-tab">
-            <div className="create-institute-section">
-              <button onClick={() => setShowCreateInstituteForm(!showCreateInstituteForm)}>
-                {showCreateInstituteForm ? "Cancel" : "Create New Institute"}
-              </button>
-              {showCreateInstituteForm && (
-                <form className="create-institute-form" onSubmit={handleCreateInstituteSubmit}>
-                  <input
-                    type="text"
-                    placeholder="Institute Name"
-                    value={newInstituteName}
-                    onChange={(e) => setNewInstituteName(e.target.value)}
-                    required
-                  />
-                  <button type="submit" disabled={createInstituteMutation.isLoading}>
-                    {createInstituteMutation.isLoading ? "Creating..." : "Add Institute"}
-                  </button>
-                </form>
-              )}
-            </div>
-
-            {institutes.length === 0 ? (
-              <p>No institutes found for this organization.</p>
-            ) : (
-              <div className="institute-list">
-                {institutes.map((institute) => (
-                  <div key={institute.id} className="institute-card">
-                    <h3>{institute.name}</h3>
-                    <p>ID: {institute.id}</p>
-                    <button onClick={() => handleInstituteClick(institute.id)}>
-                      Manage Institute
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {activeTab === "users" && (
           <div className="users-tab">
-            <div className="invite-user-section">
-              <button onClick={() => setShowInviteUserForm(!showInviteUserForm)}>
-                {showInviteUserForm ? "Cancel" : "Invite User to Organization"}
+            <div className="section-header">
+              <h3>Organization Users</h3>
+              <button 
+                className="btn-primary"
+                onClick={() => setShowInviteForm(!showInviteForm)}
+              >
+                <FaUserPlus className="icon" /> {showInviteForm ? "Cancel" : "Invite User"}
               </button>
-              {showInviteUserForm && (
-                <form className="invite-user-form" onSubmit={handleInviteUserSubmit}>
+            </div>
+
+            {showInviteForm && (
+              <form className="invite-form" onSubmit={handleInviteSubmit}>
+                <div className="form-group">
+                  <label>Email:</label>
                   <input
                     type="email"
-                    placeholder="User Email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="Enter user email"
                     required
                   />
+                </div>
+                <div className="form-group">
+                  <label>Role:</label>
                   <select
                     value={inviteRole}
                     onChange={(e) => setInviteRole(e.target.value)}
@@ -219,67 +178,77 @@ export default function OrganizationAdmin() {
                     <option value="USER">User</option>
                     <option value="ORG_ADMIN">Organization Admin</option>
                   </select>
-                  <button type="submit" disabled={inviteUserMutation.isLoading}>
-                    {inviteUserMutation.isLoading ? "Inviting..." : "Send Invitation"}
-                  </button>
-                </form>
-              )}
-            </div>
-
-            {orgUsers.length === 0 ? (
-              <p>No users found in this organization.</p>
-            ) : (
-              <div className="user-list">
-                {orgUsers.map((user) => (
-                  <div key={user.id} className="user-card">
-                    <h3>{user.user.name}</h3>
-                    <p>Email: {user.user.email}</p>
-                    <p>Role: {user.role}</p>
-                  </div>
-                ))}
-              </div>
+                </div>
+                <button 
+                  type="submit" 
+                  className="btn-primary"
+                  disabled={inviteUserMutation.isPending}
+                >
+                  {inviteUserMutation.isPending ? "Inviting..." : "Send Invitation"}
+                </button>
+              </form>
             )}
+
+            <div className="users-list">
+              {users.map((user) => (
+                <div key={user.id} className="user-item">
+                  <div className="user-info">
+                    <strong>{user.name}</strong> ({user.email})
+                  </div>
+                  <div className="user-role">
+                    Role: {user.role}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {activeTab === "settings" && (
-          <div className="settings-tab">
-            <h3>Organization Settings</h3>
-            <p>Current Organization: {currentOrg?.orgName}</p>
-            <p>Organization ID: {orgId}</p>
-            <p>Total Institutes: {institutes.length}</p>
-            <p>Total Users: {orgUsers.length}</p>
-            
-            <div className="update-org-section">
-              <button onClick={() => setShowUpdateOrgForm(!showUpdateOrgForm)}>
-                {showUpdateOrgForm ? "Cancel" : "Update Organization Name"}
-              </button>
-              {showUpdateOrgForm && (
-                <form className="update-org-form" onSubmit={handleUpdateOrgSubmit}>
-                  <input
-                    type="text"
-                    placeholder="New Organization Name"
-                    value={updatedOrgName}
-                    onChange={(e) => setUpdatedOrgName(e.target.value)}
-                    required
-                  />
-                  <button type="submit" disabled={updateOrganizationMutation.isLoading}>
-                    {updateOrganizationMutation.isLoading ? "Updating..." : "Update Organization"}
-                  </button>
-                </form>
-              )}
-            </div>
-            
-            <div className="actions">
-              <button className="btn-danger" onClick={() => {
-                if (window.confirm("Are you sure you want to deactivate this organization? This action cannot be undone.")) {
-                  // TODO: Implement organization deactivation
-                  alert("Organization deactivation is not implemented in this demo");
-                }
-              }}>
-                Deactivate Organization
+        {activeTab === "institutes" && (
+          <div className="institutes-tab">
+            <div className="section-header">
+              <h3>Organization Institutes</h3>
+              <button 
+                className="btn-primary"
+                onClick={() => navigate(`/organization/${orgId}/institutes`)}
+              >
+                <FaPlus className="icon" /> Manage Institutes
               </button>
             </div>
+
+            <div className="institutes-list">
+              {institutes.map((institute) => (
+                <div key={institute.id} className="institute-item">
+                  <div className="institute-info">
+                    <strong>{institute.name}</strong>
+                  </div>
+                  <div className="institute-actions">
+                    <button 
+                      className="btn-secondary"
+                      onClick={() => navigate(`/organization/${orgId}/institutes/${institute.id}/admin`)}
+                    >
+                      Manage
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "apps" && (
+          <div className="apps-tab">
+            <div className="section-header">
+              <h3>Organization Apps</h3>
+              <button 
+                className="btn-primary"
+                onClick={() => navigate("/admin/apps")}
+              >
+                <FaCog className="icon" /> Manage Apps
+              </button>
+            </div>
+            
+            <p>Manage applications for this organization.</p>
           </div>
         )}
       </div>

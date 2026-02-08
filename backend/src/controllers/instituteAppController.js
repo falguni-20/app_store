@@ -4,8 +4,8 @@ const { AppError } = require("../utils/errorHandler");
 exports.installApp = async (req, res, next) => {
   try {
     const { appId, settings } = req.body;
-    const { instituteId } = req; // From tenantAuth middleware
-    const { id: userId } = req.user; // From protect middleware - user.id is the userId
+    const { instituteId } = req;
+    const { id: userId } = req.user;
 
     const installedApp = await instituteAppService.installApp(instituteId, appId, settings, userId);
     res.status(201).json(installedApp);
@@ -18,7 +18,7 @@ exports.configureApp = async (req, res, next) => {
   try {
     const { appId } = req.params;
     const { settings } = req.body;
-    const { instituteId } = req; // From tenantAuth middleware
+    const { instituteId } = req;
 
     const updatedApp = await instituteAppService.configureApp(instituteId, Number(appId), settings);
     res.json(updatedApp);
@@ -30,10 +30,10 @@ exports.configureApp = async (req, res, next) => {
 exports.uninstallApp = async (req, res, next) => {
   try {
     const { appId } = req.params;
-    const { instituteId } = req; // From tenantAuth middleware
+    const { instituteId } = req;
 
     await instituteAppService.uninstallApp(instituteId, Number(appId));
-    res.status(204).send(); // No content
+    res.status(204).send();
   } catch (err) {
     next(new AppError(err.message, 400));
   }
@@ -43,7 +43,7 @@ exports.toggleAppStatus = async (req, res, next) => {
   try {
     const { appId } = req.params;
     const { enabled } = req.body;
-    const { instituteId } = req; // From tenantAuth middleware
+    const { instituteId } = req;
 
     if (typeof enabled !== 'boolean') {
       return next(new AppError("Enabled status must be a boolean", 400));

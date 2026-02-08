@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { useAuthStore } from "../store/authStore";
+import toast from "react-hot-toast";
 import "./login.css";
 
 export default function Login() {
@@ -22,9 +23,25 @@ export default function Login() {
                 password,
             });
             setAuth(res.data);
-            navigate("/tenant");
-        } catch {
+            // Check user's role and redirect accordingly
+            const userData = res.data.user;
+            const isSuperAdmin = userData?.organizations?.some(org => org.role === "SUPER_ADMIN");
+            const isOrgAdmin = userData?.organizations?.some(org => org.role === "ORG_ADMIN");
+
+            if (isSuperAdmin) {
+                // Platform super admin goes directly to admin apps page
+                navigate("/admin/apps");
+            } else if (isOrgAdmin) {
+                // Organization admin goes to organization selector
+                navigate("/organizations");
+            } else {
+                // If user is only a regular user (USER role), go to the tenant selection
+                navigate("/tenant");
+            }
+        } catch (error) {
             setErr("Invalid email or password");
+            toast.error("Invalid email or password");
+            console.error("Login error:", error); // Keep console.error for debugging purposes
         }
     };
 
@@ -40,6 +57,7 @@ export default function Login() {
                     placeholder="Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="username"
                 />
 
                 <input
@@ -48,9 +66,10 @@ export default function Login() {
                     placeholder="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
                 />
 
-                <button className="login-btn">
+                <button className="login-btn" type="submit">
                     Sign In
                 </button>
             </form>

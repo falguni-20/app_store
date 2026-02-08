@@ -1,8 +1,7 @@
 const bcrypt = require("bcrypt");
 const repo = require("../repositories/userRepo");
-const { verifyRefreshToken, signTokens } = require("../utils/jwt"); // Import verifyRefreshToken and signTokens
+const { verifyRefreshToken, signTokens } = require("../utils/jwt");
 
-// Helper function to format user data with memberships for JWT payload
 const _formatUserWithMemberships = (user) => {
   if (!user) return null;
 
@@ -37,27 +36,24 @@ exports.loginUser = async (email, password) => {
     throw new Error("Invalid password");
   }
 
-  // Format the user object before returning, which will be used for token generation
   return _formatUserWithMemberships(user);
 };
 
 exports.refreshAccessToken = async (refreshToken) => {
     try {
       const decoded = verifyRefreshToken(refreshToken);
-  
-      // Re-fetch user to ensure latest roles/info
-      const user = await repo.findUserWithMemberships(decoded.email); 
-  
+
+      const user = await repo.findUserWithMemberships(decoded.email);
+
       if (!user) {
         throw new Error("User not found from refresh token");
       }
-  
-      // Format the user object before signing the tokens
+
       const formattedUser = _formatUserWithMemberships(user);
 
       const { accessToken, refreshToken: newRefreshToken } = signTokens(formattedUser);
-  
-      return { accessToken, newRefreshToken, user: formattedUser }; // Return formatted user
+
+      return { accessToken, newRefreshToken, user: formattedUser };
     } catch (error) {
       throw new Error("Invalid or expired refresh token");
     }

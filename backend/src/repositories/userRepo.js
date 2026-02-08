@@ -18,7 +18,6 @@ exports.findUserWithMemberships = (email) => {
   });
 };
 
-// Find user by email only
 exports.findByEmail = (email) => {
   return prisma.user.findUnique({
     where: { email },

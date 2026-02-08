@@ -6,8 +6,7 @@ exports.createAppSchema = z.object({
   category: z.string().min(1, "Category is required"),
   launchUrl: z.string().url("Launch URL must be a valid URL"),
   webhookUrl: z.string().url("Webhook URL must be a valid URL").optional(),
-  // logoUrl is handled by file upload, not direct body input
-  requiredPermissions: z.record(z.boolean()).optional(), // JSON object of booleans
+  requiredPermissions: z.record(z.boolean()).optional(),
 });
 
 exports.updateAppSchema = z.object({

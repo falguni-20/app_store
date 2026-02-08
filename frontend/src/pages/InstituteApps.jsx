@@ -1,8 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../api/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "../store/authStore";
+import { useTenantStore } from "../store/tenantStore";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import Loader from '../components/Loader';
 import "./instituteApps.css";
 
 // Helper function to validate JSON
@@ -11,7 +14,7 @@ const isValidJson = (str) => {
     JSON.parse(str);
     return true;
   } catch (e) {
-    console.log("error",e)
+    console.log(e)
     return false;
   }
 };
@@ -20,6 +23,31 @@ export default function InstituteApps() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
+  const { orgId, instituteId, setTenant } = useTenantStore(state => state);
+  
+  // Ensure the instituteId is set for institute admins
+  useEffect(() => {
+    if (user && !instituteId) {
+      // Find the first institute associated with the user that has INSTITUTE_ADMIN role
+      const instituteAdminInst = user.institutes?.find(inst => 
+        inst.role === "INSTITUTE_ADMIN"
+      );
+      
+      if (instituteAdminInst) {
+        // Set the tenant context with the institute ID
+        setTenant({
+          orgId: instituteAdminInst.organizationId,
+          instituteId: instituteAdminInst.instituteId
+        });
+      } else if (user.institutes?.length > 0) {
+        // If no specific institute admin role, use the first institute
+        setTenant({
+          orgId: user.institutes[0].organizationId,
+          instituteId: user.institutes[0].instituteId
+        });
+      }
+    }
+  }, [user, instituteId, orgId, setTenant]);
   const [installingAppId, setInstallingAppId] = useState(null);
   const [appSettings, setAppSettings] = useState("{}");
   const [configuringAppId, setConfiguringAppId] = useState(null);
@@ -28,27 +56,55 @@ export default function InstituteApps() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [activeTab, setActiveTab] = useState("available"); // available or installed
 
-  // Fetch all apps for installation
+  // Pagination state for available apps
+  const [availableAppsPage, setAvailableAppsPage] = useState(1);
+  const [availableAppsLimit, setAvailableAppsLimit] = useState(10);
+  
+  // Fetch all apps for installation with pagination
   const { data: allAppsResult, isLoading: isLoadingAllApps, error: allAppsError } = useQuery({
-    queryKey: ["allApps"],
+    queryKey: ["allApps", availableAppsPage, availableAppsLimit],
     queryFn: async () => {
-      const response = await api.get("/view/apps");
+      const params = new URLSearchParams();
+      params.append("page", availableAppsPage);
+      params.append("limit", availableAppsLimit);
+      if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
+      if (searchTerm) params.append("searchTerm", searchTerm);
+      
+      const response = await api.get(`/view/apps?${params.toString()}`);
       return response.data;
     },
     retry: 1,
+    enabled: !!orgId && !!instituteId, // Only run query when tenant context is set
   });
-  const allApps = Array.isArray(allAppsResult) ? allAppsResult : [];
+  
+  const allApps = allAppsResult?.apps || [];
+  const totalAvailableApps = allAppsResult?.total || 0;
+  const totalAvailablePages = allAppsResult?.totalPages || 1;
 
-  // Fetch apps installed in the current institute
+  // Pagination state for installed apps
+  const [installedAppsPage, setInstalledAppsPage] = useState(1);
+  const [installedAppsLimit, setInstalledAppsLimit] = useState(10);
+  
+  // Fetch apps installed in the current institute with pagination
   const { data: installedAppsResult, isLoading: isLoadingInstalledApps, error: installedAppsError } = useQuery({
-    queryKey: ["installedApps"],
+    queryKey: ["installedApps", installedAppsPage, installedAppsLimit],
     queryFn: async () => {
-      const response = await api.get("/apps");
+      const params = new URLSearchParams();
+      params.append("page", installedAppsPage);
+      params.append("limit", installedAppsLimit);
+      if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
+      if (searchTerm) params.append("searchTerm", searchTerm);
+      
+      const response = await api.get(`/apps?${params.toString()}`);
       return response.data;
     },
     retry: 1,
+    enabled: !!orgId && !!instituteId, // Only run query when tenant context is set
   });
-  const installedApps = Array.isArray(installedAppsResult) ? installedAppsResult : [];
+  
+  const installedApps = installedAppsResult?.apps || [];
+  const totalInstalledApps = installedAppsResult?.total || 0;
+  const totalInstalledPages = installedAppsResult?.totalPages || 1;
 
   // Filter out apps that are already installed
   const availableApps = allApps.filter(
@@ -58,20 +114,24 @@ export default function InstituteApps() {
   // Filter apps based on search term and category
   const filteredAvailableApps = availableApps.filter(app => {
     const matchesSearch = app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          app.description.toLowerCase().includes(searchTerm.toLowerCase());
+      app.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "all" || app.category.toLowerCase() === selectedCategory.toLowerCase();
     return matchesSearch && matchesCategory;
   });
 
   const filteredInstalledApps = installedApps.filter(app => {
     const matchesSearch = app.app.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          app.app.description.toLowerCase().includes(searchTerm.toLowerCase());
+      app.app.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "all" || app.app.category.toLowerCase() === selectedCategory.toLowerCase();
     return matchesSearch && matchesCategory;
   });
 
-  // Get unique categories for filtering
-  const categories = [...new Set([...allApps.map(app => app.category)])];
+  // Get unique categories for filtering from both available and installed apps
+  const allCategories = [
+    ...allApps.map(app => app.category),
+    ...installedApps.map(installedApp => installedApp.app.category)
+  ];
+  const categories = [...new Set(allCategories)];
 
   // Install app mutation
   const installAppMutation = useMutation({
@@ -82,7 +142,7 @@ export default function InstituteApps() {
         try {
           parsedSettings = JSON.parse(settings);
         } catch (e) {
-          throw new Error("Invalid JSON in settings",e);
+          throw new Error("Invalid JSON in settings", e);
         }
       }
       return api.post("/institute/apps/install", { appId, settings: parsedSettings });
@@ -92,11 +152,11 @@ export default function InstituteApps() {
       queryClient.invalidateQueries(["installedApps"]);
       setInstallingAppId(null);
       setAppSettings("{}");
+      toast.success("App installed successfully!");
     },
     onError: (error) => {
-      console.error("Install app error:", error);
       const errorMessage = error.response?.data?.message || error.message || "Failed to install app";
-      alert("Error installing app: " + errorMessage);
+      toast.error("Error installing app: " + errorMessage);
     }
   });
 
@@ -109,7 +169,7 @@ export default function InstituteApps() {
         try {
           parsedSettings = JSON.parse(settings);
         } catch (e) {
-          throw new Error("Invalid JSON in settings",e);
+          throw new Error("Invalid JSON in settings", e);
         }
       }
       return api.put(`/institute/apps/${appId}/configure`, { settings: parsedSettings });
@@ -118,11 +178,11 @@ export default function InstituteApps() {
       queryClient.invalidateQueries(["installedApps"]);
       setConfiguringAppId(null);
       setConfiguringAppSettings("{}");
+      toast.success("App configured successfully!");
     },
     onError: (error) => {
-      console.error("Configure app error:", error);
       const errorMessage = error.response?.data?.message || error.message || "Failed to configure app";
-      alert("Error configuring app: " + errorMessage);
+      toast.error("Error configuring app: " + errorMessage);
     }
   });
 
@@ -132,25 +192,25 @@ export default function InstituteApps() {
     onSuccess: () => {
       queryClient.invalidateQueries(["allApps"]);
       queryClient.invalidateQueries(["installedApps"]);
+      toast.success("App uninstalled successfully!");
     },
     onError: (error) => {
-      console.error("Uninstall app error:", error);
       const errorMessage = error.response?.data?.message || error.message || "Failed to uninstall app";
-      alert("Error uninstalling app: " + errorMessage);
+      toast.error("Error uninstalling app: " + errorMessage);
     }
   });
 
   // Toggle app status mutation
   const toggleAppStatusMutation = useMutation({
-    mutationFn: ({ appId, enabled }) => 
+    mutationFn: ({ appId, enabled }) =>
       api.patch(`/institute/apps/${appId}/status`, { enabled }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries(["installedApps"]);
+      toast.success(`App ${data.enabled ? 'enabled' : 'disabled'} successfully!`);
     },
     onError: (error) => {
-      console.error("Toggle app status error:", error);
       const errorMessage = error.response?.data?.message || error.message || "Failed to update app status";
-      alert("Error updating app status: " + errorMessage);
+      toast.error("Error updating app status: " + errorMessage);
     }
   });
 
@@ -175,9 +235,31 @@ export default function InstituteApps() {
   };
 
   const handleUninstall = (appId) => {
-    if (window.confirm("Are you sure you want to uninstall this app? This action cannot be undone.")) {
-      uninstallAppMutation.mutate(appId);
-    }
+    toast((t) => (
+      <div className="toast-confirm">
+        Are you sure you want to uninstall this app? This action cannot be undone.
+        <div className="toast-buttons">
+          <button 
+            className="toast-confirm-btn confirm"
+            onClick={() => {
+              uninstallAppMutation.mutate(appId);
+              toast.dismiss(t.id);
+            }}
+          >
+            Yes
+          </button>
+          <button 
+            className="toast-confirm-btn cancel"
+            onClick={() => toast.dismiss(t.id)}
+          >
+            No
+          </button>
+        </div>
+      </div>
+    ), {
+      duration: Infinity,
+      position: "top-center"
+    });
   };
 
   const handleToggleAppStatus = (appId, currentStatus) => {
@@ -194,18 +276,33 @@ export default function InstituteApps() {
     setConfiguringAppSettings("{}");
   };
 
+
+
+  // Check if tenant context is not yet set
+  if (!orgId || !instituteId) {
+    return (
+      <div className="institute-apps-container">
+        <div className="loading-tenant-context">
+          <p>Setting up tenant context...</p>
+          <p>Please make sure you have institute admin privileges.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoadingAllApps || isLoadingInstalledApps) {
     return (
       <div className="institute-apps-container">
-        <div className="loading">Loading apps...</div>
+        <Loader message="Loading apps..." />
       </div>
     );
   }
 
   if (allAppsError || installedAppsError) {
+    toast.error("Error loading apps. Please try again later.");
     return (
       <div className="institute-apps-container">
-        <div className="error">Error loading apps. Please try again later.</div>
+        <div className="error">Failed to load apps.</div>
       </div>
     );
   }
@@ -213,17 +310,9 @@ export default function InstituteApps() {
   return (
     <div className="institute-apps-container">
       <div className="header-section">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h2>Institute Admin Panel</h2>
-            <p>Welcome, {user?.name}. Manage apps for your institute.</p>
-          </div>
-          <button 
-            onClick={() => navigate('/analytics')} 
-            className="analytics-link-btn"
-          >
-            View Analytics
-          </button>
+        <div>
+          <h2>Institute Admin Panel</h2>
+          <p>Welcome, {user?.name}. Manage apps for your institute.</p>
         </div>
       </div>
 
@@ -249,17 +338,23 @@ export default function InstituteApps() {
         </div>
 
         <div className="tabs">
-          <button 
+          <button
             className={activeTab === "available" ? "active-tab" : ""}
-            onClick={() => setActiveTab("available")}
+            onClick={() => {
+              setActiveTab("available");
+              setAvailableAppsPage(1); // Reset to first page when switching tabs
+            }}
           >
-            Available Apps ({filteredAvailableApps.length})
+            Available Apps ({totalAvailableApps})
           </button>
-          <button 
+          <button
             className={activeTab === "installed" ? "active-tab" : ""}
-            onClick={() => setActiveTab("installed")}
+            onClick={() => {
+              setActiveTab("installed");
+              setInstalledAppsPage(1); // Reset to first page when switching tabs
+            }}
           >
-            Installed Apps ({filteredInstalledApps.length})
+            Installed Apps ({totalInstalledApps})
           </button>
         </div>
       </div>
@@ -267,11 +362,11 @@ export default function InstituteApps() {
       {activeTab === "available" && (
         <div className="available-apps-section">
           <h3>Available Apps</h3>
-          
+
           {filteredAvailableApps.length === 0 ? (
             <div className="no-apps-message">
-              {availableApps.length === 0 
-                ? "No apps available for installation." 
+              {availableApps.length === 0
+                ? "No apps available for installation."
                 : "No apps match your search criteria."}
             </div>
           ) : (
@@ -279,19 +374,15 @@ export default function InstituteApps() {
               {filteredAvailableApps.map((app) => (
                 <div key={app.id} className="app-card">
                   <div className="app-header">
-                    {app.logoUrl ? (
-                      <img src={app.logoUrl} alt={app.name} className="app-logo" />
-                    ) : (
-                      <div className="app-logo-placeholder">APP</div>
-                    )}
+                    <div className="app-logo-placeholder">APP</div>
                     <div className="app-info">
                       <h4>{app.name}</h4>
                       <span className="app-category">{app.category}</span>
                     </div>
                   </div>
-                  
+
                   <p className="app-description">{app.description}</p>
-                  
+
                   <div className="app-actions">
                     {installingAppId === app.id ? (
                       <form onSubmit={(e) => handleInstallSubmit(e, app.id)} className="settings-form">
@@ -310,15 +401,15 @@ export default function InstituteApps() {
                           )}
                         </div>
                         <div className="form-actions">
-                          <button 
-                            type="submit" 
+                          <button
+                            type="submit"
                             disabled={installAppMutation.isLoading || !isValidJson(appSettings)}
                             className="confirm-btn"
                           >
                             {installAppMutation.isLoading ? "Installing..." : "Install App"}
                           </button>
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             onClick={handleCancelInstall}
                             disabled={installAppMutation.isLoading}
                             className="cancel-btn"
@@ -328,7 +419,7 @@ export default function InstituteApps() {
                         </div>
                       </form>
                     ) : (
-                      <button 
+                      <button
                         onClick={() => handleInstallClick(app.id)}
                         className="install-btn"
                       >
@@ -346,11 +437,11 @@ export default function InstituteApps() {
       {activeTab === "installed" && (
         <div className="installed-apps-section">
           <h3>Installed Apps</h3>
-          
+
           {filteredInstalledApps.length === 0 ? (
             <div className="no-apps-message">
-              {installedApps.length === 0 
-                ? "No apps installed yet." 
+              {installedApps.length === 0
+                ? "No apps installed yet."
                 : "No installed apps match your search criteria."}
             </div>
           ) : (
@@ -358,31 +449,27 @@ export default function InstituteApps() {
               {filteredInstalledApps.map((installedApp) => (
                 <div key={installedApp.id} className="app-card installed">
                   <div className="app-header">
-                    {installedApp.app.logoUrl ? (
-                      <img src={installedApp.app.logoUrl} alt={installedApp.app.name} className="app-logo" />
-                    ) : (
-                      <div className="app-logo-placeholder">APP</div>
-                    )}
+                    <div className="app-logo-placeholder">APP</div>
                     <div className="app-info">
                       <h4>{installedApp.app.name}</h4>
                       <span className="app-category">{installedApp.app.category}</span>
                     </div>
                   </div>
-                  
+
                   <p className="app-description">{installedApp.app.description}</p>
-                  
+
                   <div className="app-meta">
                     <div className="meta-item">
                       <strong>Installed:</strong> {new Date(installedApp.installedAt).toLocaleDateString()}
                     </div>
                     <div className="meta-item">
-                      <strong>Status:</strong> 
+                      <strong>Status:</strong>
                       <span className={installedApp.enabled ? "status-active" : "status-inactive"}>
                         {installedApp.enabled ? "Active" : "Inactive"}
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="app-actions">
                     {configuringAppId === installedApp.app.id ? (
                       <form onSubmit={(e) => handleConfigureSubmit(e, installedApp.app.id)} className="settings-form">
@@ -400,15 +487,15 @@ export default function InstituteApps() {
                           )}
                         </div>
                         <div className="form-actions">
-                          <button 
-                            type="submit" 
+                          <button
+                            type="submit"
                             disabled={configureAppMutation.isLoading || !isValidJson(configuringAppSettings)}
                             className="confirm-btn"
                           >
                             {configureAppMutation.isLoading ? "Saving..." : "Save Settings"}
                           </button>
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             onClick={handleCancelConfigure}
                             disabled={configureAppMutation.isLoading}
                             className="cancel-btn"
@@ -419,22 +506,22 @@ export default function InstituteApps() {
                       </form>
                     ) : (
                       <div className="installed-app-actions">
-                        <button 
+                        <button
                           onClick={() => handleConfigureClick(installedApp)}
                           className="configure-btn"
                         >
                           Configure
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleToggleAppStatus(installedApp.app.id, installedApp.enabled)}
                           className={installedApp.enabled ? "disable-btn" : "enable-btn"}
                           disabled={toggleAppStatusMutation.isLoading}
                         >
-                          {toggleAppStatusMutation.isLoading 
-                            ? (installedApp.enabled ? "Disabling..." : "Enabling...") 
+                          {toggleAppStatusMutation.isLoading
+                            ? (installedApp.enabled ? "Disabling..." : "Enabling...")
                             : (installedApp.enabled ? "Disable" : "Enable")}
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleUninstall(installedApp.app.id)}
                           className="uninstall-btn"
                           disabled={uninstallAppMutation.isLoading}

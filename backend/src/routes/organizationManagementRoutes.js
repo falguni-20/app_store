@@ -5,7 +5,6 @@ const organizationManagementController = require("../controllers/organizationMan
 
 const isSuperAdmin = requireRole(["SUPER_ADMIN"]);
 
-// Super admin only routes
 router.get("/", protect, isSuperAdmin, organizationManagementController.getAllOrganizations);
 router.post("/", protect, isSuperAdmin, organizationManagementController.createOrganization);
 router.put("/:orgId", protect, isSuperAdmin, organizationManagementController.updateOrganization);

@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { useNavigate } from 'react-router-dom';
 import './userSettings.css';
 
 const UserSettings = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const { user, setAuth } = useAuthStore();
 
@@ -44,6 +46,9 @@ const UserSettings = () => {
   return (
     <div className="user-settings-container">
       <div className="settings-header">
+        <button onClick={() => navigate(-1)} className="back-button">
+          &larr; Back
+        </button>
         <h1>User Settings</h1>
         <p>Manage your profile, preferences, and account settings</p>
       </div>

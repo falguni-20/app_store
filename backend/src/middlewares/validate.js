@@ -2,8 +2,8 @@ const validate = (schema) => (req, res, next) => {
     console.log("req.body before validation:", req.body);
     try {
       const parsedBody = schema.parse(req.body);
-      req.body = parsedBody; // Replace req.body with validated and parsed data
-      
+      req.body = parsedBody;
+
       next();
     } catch (error) {
       if (error instanceof Error) {
@@ -15,8 +15,8 @@ const validate = (schema) => (req, res, next) => {
           })),
         });
       }
-      next(error); // Pass other errors to the next middleware
+      next(error);
     }
   };
-  
+
   module.exports = validate;

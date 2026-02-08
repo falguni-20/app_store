@@ -7,7 +7,7 @@ const { launchApp } = require("../controllers/appController");
 router.get("/", protect, tenantAuth, appController.listApps);
 
 router.get("/:id", protect, tenantAuth, appController.getApp);
-router.get("/details/:appId", protect, appController.getAppDetail); // New route for global app details
+router.get("/details/:appId", protect, appController.getAppDetail);
 
 router.get("/:appId/launch", protect, tenantAuth, launchApp);
 

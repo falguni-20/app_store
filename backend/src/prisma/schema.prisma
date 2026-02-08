@@ -6,66 +6,100 @@ datasource db {
   provider = "postgresql"
 }
 
-//////////////////////
-// USERS
-//////////////////////
-
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-
-  orgRoles       UserOrganization[]
+  id             Int                @id @default(autoincrement())
+  name           String
+  email          String             @unique
+  password       String
+  createdAt      DateTime           @default(now())
   instituteRoles UserInstitute[]
+  orgRoles       UserOrganization[]
 }
 
-//////////////////////
-// ORGANIZATIONS
-//////////////////////
-
 model Organization {
-  id        Int      @id @default(autoincrement())
-  name      String
-  createdAt DateTime @default(now())
-
+  id         Int                @id @default(autoincrement())
+  name       String
+  createdAt  DateTime           @default(now())
   institutes Institute[]
   users      UserOrganization[]
 }
 
-//////////////////////
-// INSTITUTES
-//////////////////////
-
 model Institute {
-  id             Int      @id @default(autoincrement())
+  id             Int                     @id @default(autoincrement())
   name           String
   organizationId Int
-  createdAt      DateTime @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id])
-
-  users UserInstitute[]
-  installedApps InstituteInstalledApp[]
+  createdAt      DateTime                @default(now())
+  organization   Organization            @relation(fields: [organizationId], references: [id])
+  installedApps  InstituteInstalledApp[]
+  users          UserInstitute[]
 
   @@index([organizationId])
 }
 
-//////////////////////
-// USER ↔ ORG (ROLE MAP)
-//////////////////////
-
 model UserOrganization {
-  id             Int    @id @default(autoincrement())
+  id             Int          @id @default(autoincrement())
   userId         Int
   organizationId Int
   role           OrgRole
-
-  user         User         @relation(fields: [userId], references: [id])
-  organization Organization @relation(fields: [organizationId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
 
   @@unique([userId, organizationId])
+}
+
+model UserInstitute {
+  id          Int           @id @default(autoincrement())
+  userId      Int
+  instituteId Int
+  role        InstituteRole
+  institute   Institute     @relation(fields: [instituteId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
+
+  @@unique([userId, instituteId])
+}
+
+model App {
+  id                  Int                     @id @default(autoincrement())
+  name                String
+  description         String
+  category            String
+  launchUrl           String
+  webhookUrl          String
+  logoUrl             String?
+  requiredPermissions Json
+  createdAt           DateTime                @default(now())
+  webhookSecret       String?
+  installations       InstituteInstalledApp[]
+}
+
+model InstituteInstalledApp {
+  id          Int          @id @default(autoincrement())
+  instituteId Int
+  appId       Int
+  settings    Json
+  installedAt DateTime     @default(now())
+  installedBy Int
+  enabled     Boolean      @default(true)
+  app         App          @relation(fields: [appId], references: [id])
+  institute   Institute    @relation(fields: [instituteId], references: [id])
+  webhookLogs WebhookLog[]
+
+  @@unique([instituteId, appId])
+  @@index([instituteId])
+  @@index([appId])
+}
+
+model WebhookLog {
+  id           Int                   @id @default(autoincrement())
+  instituteId  Int
+  appId        Int
+  payload      Json
+  statusCode   Int
+  receivedAt   DateTime              @default(now())
+  instituteApp InstituteInstalledApp @relation(fields: [instituteId, appId], references: [instituteId, appId], onDelete: Cascade)
+
+  @@index([instituteId])
+  @@index([appId])
 }
 
 enum OrgRole {
@@ -74,86 +108,7 @@ enum OrgRole {
   USER
 }
 
-//////////////////////
-// USER ↔ INSTITUTE (ROLE MAP)
-//////////////////////
-
-model UserInstitute {
-  id          Int @id @default(autoincrement())
-  userId      Int
-  instituteId Int
-  role        InstituteRole
-
-  user      User      @relation(fields: [userId], references: [id])
-  institute Institute @relation(fields: [instituteId], references: [id])
-
-  @@unique([userId, instituteId])
-}
-
 enum InstituteRole {
   INSTITUTE_ADMIN
   USER
-}
-
-//////////////////////
-// APPS
-//////////////////////
-
-model App {
-  id            Int      @id @default(autoincrement())
-  name          String
-  description   String
-  category      String
-  launchUrl     String
-  webhookUrl    String
-  logoUrl       String?
-  webhookSecret String?  // Secret for webhook verification
-
-  requiredPermissions Json   // JSONB
-  createdAt           DateTime @default(now())
-
-  installations InstituteInstalledApp[]
-}
-
-//////////////////////
-// INSTITUTE INSTALLED APPS
-//////////////////////
-
-model InstituteInstalledApp {
-  id          Int      @id @default(autoincrement())
-  instituteId Int
-  appId       Int      // Removed @unique
-
-  settings    Json      // JSONB config
-  enabled     Boolean  @default(true)
-  installedAt DateTime  @default(now())
-  installedBy Int       // userId
-
-  institute Institute @relation(fields: [instituteId], references: [id])
-  app       App       @relation(fields: [appId], references: [id])
-
-  webhookLogs WebhookLog[]
-
-  @@unique([instituteId, appId])
-  @@index([instituteId])
-  @@index([appId])
-}
-
-//////////////////////
-// WEBHOOK LOGS
-//////////////////////
-
-model WebhookLog {
-  id          Int      @id @default(autoincrement())
-  instituteId Int
-  appId       Int
-
-  payload    Json
-  statusCode Int
-  receivedAt DateTime @default(now())
-
-  instituteApp InstituteInstalledApp? @relation(fields: [instituteId, appId], references: [instituteId, appId])
-
-  @@index([instituteId])
-  @@index([appId])
 }

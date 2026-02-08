@@ -1,15 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../api/client";
 import { useState } from "react"; // Import useState
+import { useParams } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useTenantStore } from "../store/tenantStore";
 import { useNavigate } from "react-router-dom";
+import { FaArrowLeft, FaBuilding, FaPlus } from "react-icons/fa";
+import Loader from '../components/Loader';
 import "./organizationInstitutes.css";
 
 export default function OrganizationInstitutes() {
   const navigate = useNavigate();
+  const { orgId } = useParams(); // Get orgId from route parameters
   const user = useAuthStore((state) => state.user);
-  const { orgId, setTenant } = useTenantStore((state) => state); // Removed instituteId as it's not directly used here
+  const { setTenant } = useTenantStore((state) => state); // Removed instituteId as it's not directly used here
   const queryClient = useQueryClient(); // Initialize queryClient
 
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -47,10 +51,10 @@ export default function OrganizationInstitutes() {
   };
 
   const handleInstituteClick = (selectedInstituteId) => {
-    setTenant({ orgId, instituteId: selectedInstituteId });
+    setTenant({ orgId: parseInt(orgId), instituteId: selectedInstituteId });
 
     const userInstituteMembership = user?.institutes.find(
-      (inst) => inst.instituteId === selectedInstituteId && inst.organizationId === orgId
+      (inst) => inst.instituteId === selectedInstituteId && inst.organizationId === parseInt(orgId)
     );
     const instituteRole = userInstituteMembership?.role;
 
@@ -63,18 +67,46 @@ export default function OrganizationInstitutes() {
     }
   };
 
-  if (isLoading) return <div>Loading institutes...</div>;
+
+
+  if (isLoading) return (
+    <div className="organization-institutes-container">
+      <Loader message="Loading institutes..." />
+    </div>
+  );
+
+  // Check if user has access to this organization
+  const userOrg = user?.organizations?.find(o => o.orgId === parseInt(orgId));
+  if (!userOrg) {
+    return <div>Access denied: You don't belong to this organization</div>;
+  }
 
   return (
     <div className="organization-institutes-container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>Institutes in {user?.organizations.find(o => o.orgId === orgId)?.orgName}</h2>
-        <button 
-          onClick={() => navigate('/organization/admin')}
-          className="org-admin-btn"
-        >
-          Organization Admin Panel
-        </button>
+      <div className="header-section">
+        <div className="page-header">
+          <button 
+            className="back-btn"
+            onClick={() => navigate('/organizations')}
+            title="Back to Organizations"
+          >
+            <FaArrowLeft />
+          </button>
+          <FaBuilding className="page-icon" />
+          <div>
+            <h1>Institutes</h1>
+            <h2>{userOrg?.orgName}</h2>
+          </div>
+        </div>
+        {/* Only show admin panel button if user has admin rights */}
+        {userOrg?.role === 'ORG_ADMIN' || userOrg?.role === 'SUPER_ADMIN' ? (
+          <button
+            onClick={() => navigate(`/organization/${orgId}/admin`)}
+            className="org-admin-btn"
+          >
+            Switch to Admin Panel
+          </button>
+        ) : null}
       </div>
 
       <div className="create-institute-section">

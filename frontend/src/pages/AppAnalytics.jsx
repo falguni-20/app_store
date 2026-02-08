@@ -1,9 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import api from "../api/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
+import Loader from '../components/Loader';
 import "./appAnalytics.css";
 
 export default function AppAnalytics() {
+  const navigate = useNavigate();
   const [selectedApp, setSelectedApp] = useState(null);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
@@ -34,20 +38,38 @@ export default function AppAnalytics() {
     retry: 1,
   });
 
+  useEffect(() => {
+    if (detailsError) { // Check for detailsError directly
+      toast.error("Error loading app usage details: " + (detailsError.message || "Unknown error"));
+    }
+  }, [detailsError]); // Only re-run when detailsError changes
+
   if (appsError) {
+    toast.error("Error loading analytics data.");
     return (
       <div className="app-analytics-container">
-        <div className="error">Error loading analytics data: {appsError.message}</div>
+        <div className="error">Failed to load analytics data. Please try again later.</div>
       </div>
     );
   }
 
-  if (isLoading) return <div className="analytics-loading">Loading analytics...</div>;
+
+
+  if (isLoading) return (
+    <div className="app-analytics-container">
+      <Loader message="Loading analytics..." />
+    </div>
+  );
 
   return (
     <div className="app-analytics-container">
-      <h2>App Analytics & Monitoring</h2>
-      
+      <div className="analytics-header">
+        <button onClick={() => navigate(-1)} className="back-button">
+          &larr; Back
+        </button>
+        <h2>App Analytics & Monitoring</h2>
+      </div>
+
       <div className="analytics-filters">
         <div className="date-range-selector">
           <label>Start Date:</label>

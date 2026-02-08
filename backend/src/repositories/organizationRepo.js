@@ -1,5 +1,42 @@
 const { prisma } = require("../config/db");
 
+exports.findInstalledAppsByOrganization = async (orgId) => {
+  return prisma.instituteInstalledApp.findMany({
+    where: {
+      institute: {
+        organizationId: orgId,
+      },
+    },
+    include: {
+      app: {
+        select: {
+          id: true,
+          name: true,
+          logoUrl: true,
+          description: true,
+          category: true,
+          launchUrl: true,
+        },
+      },
+      institute: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+};
+
+exports.findAllOrganizations = async () => {
+  return prisma.organization.findMany({
+    select: {
+      id: true,
+      name: true,
+    },
+  });
+};
+
 exports.findInstitutesByOrganization = async (orgId) => {
   return prisma.institute.findMany({
     where: {
@@ -25,7 +62,7 @@ exports.createInstitute = async (orgId, name, userId) => {
       data: {
         userId: userId,
         instituteId: newInstitute.id,
-        role: "USER", // Assign the creator as a regular USER of the new institute
+        role: "USER",
       },
     });
 
@@ -33,7 +70,6 @@ exports.createInstitute = async (orgId, name, userId) => {
   });
 };
 
-// Find users in an organization
 exports.findUsersInOrganization = async (orgId) => {
   return prisma.userOrganization.findMany({
     where: {
@@ -56,7 +92,6 @@ exports.findUsersInOrganization = async (orgId) => {
   });
 };
 
-// Find if a user is already a member of an organization
 exports.findUserOrganizationMembership = async (userId, orgId) => {
   return prisma.userOrganization.findUnique({
     where: {
@@ -68,7 +103,6 @@ exports.findUserOrganizationMembership = async (userId, orgId) => {
   });
 };
 
-// Add user to organization
 exports.addUserToOrganization = async (userId, orgId, role, invitedById) => {
   return prisma.userOrganization.create({
     data: {

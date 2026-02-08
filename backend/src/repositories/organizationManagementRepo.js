@@ -1,6 +1,5 @@
 const { prisma } = require("../config/db");
 
-// Find all organizations
 exports.findAllOrganizations = async () => {
   return prisma.organization.findMany({
     select: {
@@ -11,7 +10,6 @@ exports.findAllOrganizations = async () => {
   });
 };
 
-// Create a new organization
 exports.createOrganization = async (name) => {
   return prisma.organization.create({
     data: {
@@ -25,7 +23,6 @@ exports.createOrganization = async (name) => {
   });
 };
 
-// Find organization by name
 exports.findByName = async (name) => {
   return prisma.organization.findUnique({
     where: {
@@ -34,7 +31,6 @@ exports.findByName = async (name) => {
   });
 };
 
-// Find organization by name excluding specific ID
 exports.findByNameAndExcludeId = async (name, excludeId) => {
   return prisma.organization.findFirst({
     where: {
@@ -44,7 +40,6 @@ exports.findByNameAndExcludeId = async (name, excludeId) => {
   });
 };
 
-// Update organization
 exports.updateOrganization = async (orgId, name) => {
   return prisma.organization.update({
     where: {
@@ -61,10 +56,7 @@ exports.updateOrganization = async (orgId, name) => {
   });
 };
 
-// Delete organization
 exports.deleteOrganization = async (orgId) => {
-  // Note: This will fail if there are related records due to foreign key constraints
-  // In a real-world scenario, you'd need to handle cascading deletes carefully
   return prisma.organization.delete({
     where: {
       id: orgId,
@@ -72,7 +64,6 @@ exports.deleteOrganization = async (orgId) => {
   });
 };
 
-// Add user to organization
 exports.addUserToOrganization = async (userId, orgId, role) => {
   return prisma.userOrganization.create({
     data: {

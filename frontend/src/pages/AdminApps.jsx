@@ -1,9 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../api/client";
 import { useState, useRef, useEffect } from "react";
+import toast from "react-hot-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createAppSchema, updateAppSchema } from "../validation/appValidation";
+import Loader from '../components/Loader';
 import "./adminApps.css";
 
 export default function AdminApps() {
@@ -156,7 +158,11 @@ export default function AdminApps() {
       setLogoPreview(null); // Clear logo preview
       if (createLogoRef.current) createLogoRef.current.value = ""; // Clear file input
       setShowCreateModal(false); // Close modal on success
+      toast.success("App created successfully!");
     },
+    onError: (error) => {
+      toast.error("Error creating app: " + (error.response?.data?.message || error.message));
+    }
   });
 
   const updateAppMutation = useMutation({
@@ -193,12 +199,22 @@ export default function AdminApps() {
       resetEdit(); // Reset edit form
       setEditLogoPreview(null); // Clear edit logo preview
       if (editLogoRef.current) editLogoRef.current.value = ""; // Clear file input
+      toast.success("App updated successfully!");
     },
+    onError: (error) => {
+      toast.error("Error updating app: " + (error.response?.data?.message || error.message));
+    }
   });
 
   const deleteAppMutation = useMutation({
     mutationFn: (id) => api.delete(`/admin/apps/${id}`),
-    onSuccess: () => queryClient.invalidateQueries(["adminApps"]),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["adminApps"]);
+      toast.success("App deleted successfully!");
+    },
+    onError: (error) => {
+      toast.error("Error deleting app: " + (error.response?.data?.message || error.message));
+    }
   });
 
   const onSubmitCreate = (data) => {
@@ -228,12 +244,9 @@ export default function AdminApps() {
     setEditValue('logo', null);
   };
 
-  if (isLoading) return (
-    <div className="loading">
-      <div className="loading-spinner"></div>
-      <p>Loading apps...</p>
-    </div>
-  );
+
+
+  if (isLoading) return <Loader message="Loading apps..." />;
 
   return (
     <div className="admin-apps-container">
@@ -465,9 +478,7 @@ export default function AdminApps() {
                   </button>
                 </div>
 
-                {createAppMutation.isError && (
-                  <div className="error">Error creating app: {createAppMutation.error.message}</div>
-                )}
+
               </form>
             </div>
           </div>
@@ -712,9 +723,7 @@ export default function AdminApps() {
                   </button>
                 </div>
 
-                {updateAppMutation.isError && (
-                  <div className="error">Error updating app: {updateAppMutation.error.message}</div>
-                )}
+
               </form>
             </div>
           </div>

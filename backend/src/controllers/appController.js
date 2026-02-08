@@ -1,16 +1,18 @@
 const appService = require("../services/appService");
-const adminAppService = require("../services/adminAppService"); // Import admin app service to list all apps
+const adminAppService = require("../services/adminAppService");
 const { signToken } = require("../utils/jwt");
 const { AppError } = require("../utils/errorHandler");
 
 exports.listApps = async (req, res, next) => {
   try {
-    const { category, page = 1, limit = 10 } = req.query;
-    const { instituteId } = req; // set by tenant middleware
+    const { category, searchTerm, sortBy, page = 1, limit = 10 } = req.query;
+    const { instituteId } = req;
 
     const { apps, total, page: currentPage, limit: currentLimit } = await appService.getAppsForInstitute(
       instituteId,
       category,
+      searchTerm,
+      sortBy,
       Number(page),
       Number(limit)
     );
@@ -47,17 +49,15 @@ exports.launchApp = async (req, res, next) => {
   try {
 
     const { appId } = req.params;
-    const { instituteId, orgId } = req; // set by tenant middleware
-    const { userId } = req.user; // set by protect middleware
+    const { instituteId, orgId } = req;
+    const { userId } = req.user;
 
-    // Get installed app
     const installedApp = await appService.getInstalledApp(appId, instituteId);
 
     if (!installedApp) {
       return next(new AppError("App not installed for this institute", 404));
     }
 
-    // Prepare launch token
     const tokenPayload = {
       userId,
       instituteId,
@@ -79,11 +79,16 @@ exports.launchApp = async (req, res, next) => {
   }
 };
 
-// List all apps (for institute admins to see what's available to install)
 exports.listAllApps = async (req, res, next) => {
   try {
-    const apps = await adminAppService.listAllApps();
-    res.json(apps);
+    const { page = 1, limit = 10, category, searchTerm } = req.query;
+    const result = await adminAppService.listAllAppsWithPagination(
+      parseInt(page),
+      parseInt(limit),
+      category,
+      searchTerm
+    );
+    res.json(result);
   } catch (err) {
     next(new AppError(err.message, 500));
   }

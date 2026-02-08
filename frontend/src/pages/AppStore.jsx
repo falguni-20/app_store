@@ -1,35 +1,34 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, } from "@tanstack/react-query";
 import api from "../api/client";
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
+import toast from "react-hot-toast";
+import Loader from '../components/Loader';
 import "./appStore.css";
 
 export default function AppStore() {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
   const [launchedApp, setLaunchedApp] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState("name"); // Sort options: name, category, installedAt
+  const [sortBy, setSortBy] = useState("name"); 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
-  const limit = 10; // Items per page
+  const limit = 10;
 
   useEffect(() => {
     const timerId = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
-      setCurrentPage(1); // Reset to first page on new search
-    }, 500); // 500ms debounce
+      setCurrentPage(1); 
+    }, 500);
     return () => {
       clearTimeout(timerId);
     };
   }, [searchTerm]);
 
-  // Fetch apps installed in the current institute with pagination and filters
   const { data: installedAppsData, isLoading: isLoadingInstalledApps } = useQuery({
     queryKey: ["installedApps", currentPage, categoryFilter, debouncedSearchTerm, sortBy],
     queryFn: async () => {
@@ -49,33 +48,39 @@ export default function AppStore() {
   const totalApps = installedAppsData?.total || 0;
   const totalPages = Math.ceil(totalApps / limit);
 
-  // Get unique categories from installed apps for filtering
   const uniqueCategories = [
     ...new Set(installedApps.map((app) => app.app.category)),
-  ].filter(Boolean); // Filter out empty strings
+  ].filter(Boolean); 
 
   const launchAppMutation = useMutation({
     mutationFn: (appId) => api.get(`/apps/${appId}/launch`),
     onSuccess: (data) => {
-        setLaunchedApp(data.data);
+      setLaunchedApp(data.data);
     },
     onError: (error) => {
-        alert("Error launching app: " + (error.response?.data?.message || error.message));
-        setLaunchedApp(null);
+      toast.error("Error launching app: " + (error.response?.data?.message || error.message));
+      setLaunchedApp(null);
     }
   });
 
-  // Close iframe handler
   const closeIframe = () => {
     setLaunchedApp(null);
   };
 
-  if (isLoadingInstalledApps) return <div className="loading">Loading apps...</div>;
+
+
+  if (isLoadingInstalledApps) return (
+    <div className="app-store-container">
+      <Loader message="Loading apps..." />
+    </div>
+  );
 
   return (
     <div className="app-store-container">
       <div className="app-store-header">
-        <h2>App Store</h2>
+        <div className="header-left">
+          <h2>App Store</h2>
+        </div>
         <div className="user-info">
           <p>Welcome, <strong>{user?.name}</strong></p>
         </div>
@@ -84,9 +89,9 @@ export default function AppStore() {
       <div className="app-store-filters">
         <div className="filter-group">
           <label htmlFor="categoryFilter">Category:</label>
-          <select 
+          <select
             id="categoryFilter"
-            value={categoryFilter} 
+            value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
             <option value="">All Categories</option>
@@ -111,9 +116,9 @@ export default function AppStore() {
 
         <div className="filter-group">
           <label htmlFor="sortSelect">Sort by:</label>
-          <select 
+          <select
             id="sortSelect"
-            value={sortBy} 
+            value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
           >
             <option value="name">Name</option>
@@ -134,15 +139,11 @@ export default function AppStore() {
             <Link to={`/apps/details/${installedApp.app.id}`} key={installedApp.id} className="app-card-link">
               <div className={`app-card ${!installedApp.enabled ? 'disabled' : ''}`}>
                 <div className="app-icon">
-                  {installedApp.app.logoUrl ? (
-                    <img src={installedApp.app.logoUrl} alt={installedApp.app.name} />
-                  ) : (
-                    <div className="app-logo-placeholder">
-                      {installedApp.app.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <div className="app-logo-placeholder">
+                    {installedApp.app.name.charAt(0).toUpperCase()}
+                  </div>
                 </div>
-                
+
                 <div className="app-info">
                   <h3>{installedApp.app.name}</h3>
                   <div className="app-meta">
@@ -153,11 +154,11 @@ export default function AppStore() {
                   </div>
                   <p className="app-description">{installedApp.app.description}</p>
                   <div className="app-actions">
-                    <button 
-                      onClick={(e) => { 
-                        e.preventDefault(); 
-                        launchAppMutation.mutate(installedApp.app.id); 
-                      }} 
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        launchAppMutation.mutate(installedApp.app.id);
+                      }}
                       disabled={launchAppMutation.isLoading || !installedApp.enabled}
                       className="launch-btn"
                     >
@@ -173,8 +174,8 @@ export default function AppStore() {
 
       {totalPages > 1 && (
         <div className="pagination">
-          <button 
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} 
+          <button
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
           >
             Previous
@@ -182,8 +183,8 @@ export default function AppStore() {
           <span>
             Page {currentPage} of {totalPages}
           </span>
-          <button 
-            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))} 
+          <button
+            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
             disabled={currentPage === totalPages}
           >
             Next
