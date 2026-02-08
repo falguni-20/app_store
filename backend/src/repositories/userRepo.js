@@ -1,4 +1,4 @@
-const prisma = require("../config/db");
+const { prisma } = require("../config/db");
 
 exports.findUserWithMemberships = (email) => {
   return prisma.user.findUnique({
@@ -15,5 +15,17 @@ exports.findUserWithMemberships = (email) => {
         },
       },
     },
+  });
+};
+
+// Find user by email only
+exports.findByEmail = (email) => {
+  return prisma.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    }
   });
 };

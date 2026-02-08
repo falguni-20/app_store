@@ -1,22 +1,42 @@
 const authService = require("../services/authService");
-const { signToken } = require("../utils/jwt");
+const { signTokens } = require("../utils/jwt"); // Changed to signTokens
+const { AppError } = require("../utils/errorHandler");
 
-exports.login = async (req, res) => {
+
+exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
     const user = await authService.loginUser(email, password);
 
-    const token = signToken({
-      userId: user.id,
-      email: user.email,
-    });
+    const { accessToken, refreshToken } = signTokens(user); // Use signTokens
 
     res.json({
-      token,
+      accessToken,
+      refreshToken,
       user,
     });
   } catch (err) {
-    res.status(401).json({ message: err.message });
+    next(new AppError(err.message, 401));
   }
 };
+
+exports.refreshToken = async (req, res, next) => {
+    try {
+      const { refreshToken } = req.body;
+  
+      if (!refreshToken) {
+        return next(new AppError("Refresh token not provided", 400));
+      }
+  
+      const { accessToken, newRefreshToken, user } = await authService.refreshAccessToken(refreshToken);
+  
+      res.json({
+        accessToken,
+        refreshToken: newRefreshToken,
+        user,
+      });
+    } catch (err) {
+      next(new AppError(err.message, 403)); // 403 Forbidden for invalid refresh token
+    }
+  };

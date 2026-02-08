@@ -100,13 +100,14 @@ enum InstituteRole {
 //////////////////////
 
 model App {
-  id          Int      @id @default(autoincrement())
-  name        String
-  description String
-  category    String
-  launchUrl   String
-  webhookUrl  String
-  logoUrl     String?
+  id            Int      @id @default(autoincrement())
+  name          String
+  description   String
+  category      String
+  launchUrl     String
+  webhookUrl    String
+  logoUrl       String?
+  webhookSecret String?  // Secret for webhook verification
 
   requiredPermissions Json   // JSONB
   createdAt           DateTime @default(now())
@@ -121,9 +122,10 @@ model App {
 model InstituteInstalledApp {
   id          Int      @id @default(autoincrement())
   instituteId Int
-  appId       Int      @unique
+  appId       Int      // Removed @unique
 
   settings    Json      // JSONB config
+  enabled     Boolean  @default(true)
   installedAt DateTime  @default(now())
   installedBy Int       // userId
 
@@ -150,7 +152,7 @@ model WebhookLog {
   statusCode Int
   receivedAt DateTime @default(now())
 
-  instituteApp InstituteInstalledApp? @relation(fields: [appId], references: [appId])
+  instituteApp InstituteInstalledApp? @relation(fields: [instituteId, appId], references: [instituteId, appId])
 
   @@index([instituteId])
   @@index([appId])

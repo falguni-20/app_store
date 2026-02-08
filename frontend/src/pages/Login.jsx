@@ -21,7 +21,6 @@ export default function Login() {
                 email,
                 password,
             });
-
             setAuth(res.data);
             navigate("/tenant");
         } catch {
