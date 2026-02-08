@@ -3,7 +3,6 @@ import api from "../api/client";
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../store/authStore";
 import { useTenantStore } from "../store/tenantStore";
-import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import Loader from '../components/Loader';
 import "./instituteApps.css";
@@ -21,7 +20,6 @@ const isValidJson = (str) => {
 
 export default function InstituteApps() {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
   const { orgId, instituteId, setTenant } = useTenantStore(state => state);
   
@@ -58,18 +56,17 @@ export default function InstituteApps() {
 
   // Pagination state for available apps
   const [availableAppsPage, setAvailableAppsPage] = useState(1);
-  const [availableAppsLimit, setAvailableAppsLimit] = useState(10);
   
   // Fetch all apps for installation with pagination
   const { data: allAppsResult, isLoading: isLoadingAllApps, error: allAppsError } = useQuery({
-    queryKey: ["allApps", availableAppsPage, availableAppsLimit],
+    queryKey: ["allApps", availableAppsPage],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append("page", availableAppsPage);
-      params.append("limit", availableAppsLimit);
+      params.append("limit", 10); // Fixed limit
       if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
       if (searchTerm) params.append("searchTerm", searchTerm);
-      
+
       const response = await api.get(`/view/apps?${params.toString()}`);
       return response.data;
     },
@@ -79,22 +76,20 @@ export default function InstituteApps() {
   
   const allApps = allAppsResult?.apps || [];
   const totalAvailableApps = allAppsResult?.total || 0;
-  const totalAvailablePages = allAppsResult?.totalPages || 1;
 
   // Pagination state for installed apps
   const [installedAppsPage, setInstalledAppsPage] = useState(1);
-  const [installedAppsLimit, setInstalledAppsLimit] = useState(10);
   
   // Fetch apps installed in the current institute with pagination
   const { data: installedAppsResult, isLoading: isLoadingInstalledApps, error: installedAppsError } = useQuery({
-    queryKey: ["installedApps", installedAppsPage, installedAppsLimit],
+    queryKey: ["installedApps", installedAppsPage],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append("page", installedAppsPage);
-      params.append("limit", installedAppsLimit);
+      params.append("limit", 10); // Fixed limit
       if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
       if (searchTerm) params.append("searchTerm", searchTerm);
-      
+
       const response = await api.get(`/apps?${params.toString()}`);
       return response.data;
     },
@@ -104,7 +99,6 @@ export default function InstituteApps() {
   
   const installedApps = installedAppsResult?.apps || [];
   const totalInstalledApps = installedAppsResult?.total || 0;
-  const totalInstalledPages = installedAppsResult?.totalPages || 1;
 
   // Filter out apps that are already installed
   const availableApps = allApps.filter(

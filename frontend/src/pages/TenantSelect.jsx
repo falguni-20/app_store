@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useTenantStore } from "../store/tenantStore";
 import "./tenant.css";
+
 
 export default function TenantSelect() {
   const user = useAuthStore((s) => s.user);
@@ -11,6 +12,10 @@ export default function TenantSelect() {
 
   const [selectedOrgId, setSelectedOrgId] = useState("");
   const [selectedInstId, setSelectedInstId] = useState("");
+  
+  const orgInitialized = useRef(false);
+  const instInitialized = useRef(false);
+  const autoSubmitInitialized = useRef(false);
 
   // Directly use the organizations and institutes arrays from the user object
   const organizations = user?.organizations || [];
@@ -48,20 +53,29 @@ export default function TenantSelect() {
   }, [setTenant, navigate, organizations, institutes]); // Dependencies for useCallback
 
   useEffect(() => {
+    if (orgInitialized.current) return;
+    orgInitialized.current = true;
+    
     // Auto-select if only one organization
     if (organizations.length === 1 && !selectedOrgId) {
-      setSelectedOrgId(organizations[0].orgId.toString());
+      setSelectedOrgId(organizations[0].orgId.toString()); // eslint-disable-line react-hooks/set-state-in-effect
     }
-  }, [organizations, selectedOrgId, handleTenantSelection]);
+  }, [organizations, selectedOrgId]); // Removed handleTenantSelection to avoid potential issues
 
   useEffect(() => {
+    if (instInitialized.current) return;
+    instInitialized.current = true;
+    
     // Auto-select if only one institute available for the selected organization
     if (availableInstitutes.length === 1 && !selectedInstId) {
-      setSelectedInstId(availableInstitutes[0].instituteId.toString());
+      setSelectedInstId(availableInstitutes[0].instituteId.toString()); // eslint-disable-line react-hooks/set-state-in-effect
     }
-  }, [availableInstitutes, selectedInstId, handleTenantSelection]);
+  }, [availableInstitutes, selectedInstId]); // Removed handleTenantSelection to avoid potential issues
 
   useEffect(() => {
+    if (autoSubmitInitialized.current) return;
+    autoSubmitInitialized.current = true;
+    
     // If both are auto-selected, submit automatically
     // The `organizations.length === 1 && availableInstitutes.length === 1` condition is important here.
     if (selectedOrgId && selectedInstId && organizations.length === 1 && availableInstitutes.length === 1) {

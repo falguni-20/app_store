@@ -6,7 +6,7 @@ import './userSettings.css';
 const UserSettings = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
-  const { user, setAuth } = useAuthStore();
+  const { user } = useAuthStore();
 
   // Mock state for form values
   const [profile, setProfile] = useState({

@@ -232,13 +232,13 @@ export default function AdminApps() {
   };
 
   // Handle logo removal
-  const removeLogo = () => {
+  const handleRemoveCreateLogo = () => {
     setLogoPreview(null);
     if (createLogoRef.current) createLogoRef.current.value = "";
     setValue('logo', null);
   };
 
-  const removeEditLogo = () => {
+  const handleRemoveEditLogo = () => {
     setEditLogoPreview(null);
     if (editLogoRef.current) editLogoRef.current.value = "";
     setEditValue('logo', null);
@@ -440,7 +440,7 @@ export default function AdminApps() {
                       {logoPreview ? (
                         <div className="logo-preview-container">
                           <img src={logoPreview} alt="Logo preview" className="logo-preview" />
-                          <button type="button" className="remove-logo-btn">
+                          <button type="button" className="remove-logo-btn" onClick={handleRemoveCreateLogo}>
                             Remove
                           </button>
                         </div>
@@ -685,7 +685,7 @@ export default function AdminApps() {
                       {editLogoPreview ? (
                         <div className="logo-preview-container">
                           <img src={editLogoPreview} alt="Logo preview" className="logo-preview" />
-                          <button type="button" className="remove-logo-btn">
+                          <button type="button" className="remove-logo-btn" onClick={handleRemoveEditLogo}>
                             Remove
                           </button>
                         </div>

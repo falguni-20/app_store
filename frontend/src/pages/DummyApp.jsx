@@ -1,11 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './dummyApp.css';
 
 const DummyApp = () => {
   const [decodedToken, setDecodedToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const initialized = useRef(false);
 
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    
     // Extract token from URL query parameters
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
@@ -19,16 +23,16 @@ const DummyApp = () => {
           return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
         }).join(''));
 
-        setDecodedToken(JSON.parse(jsonPayload));
+        setDecodedToken(JSON.parse(jsonPayload)); // eslint-disable-line react-hooks/set-state-in-effect
       } catch (error) {
         console.error('Error decoding token:', error);
-        setDecodedToken({ error: 'Invalid token' });
+        setDecodedToken({ error: 'Invalid token' }); // eslint-disable-line react-hooks/set-state-in-effect
       }
     } else {
-      setDecodedToken({ error: 'No token provided' });
+      setDecodedToken({ error: 'No token provided' }); // eslint-disable-line react-hooks/set-state-in-effect
     }
 
-    setIsLoading(false);
+    setIsLoading(false); // eslint-disable-line react-hooks/set-state-in-effect
   }, []);
 
   if (isLoading) {

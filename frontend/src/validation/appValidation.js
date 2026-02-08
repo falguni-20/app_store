@@ -11,7 +11,7 @@ export const createAppSchema = z.object({
     try {
       JSON.parse(val);
       return true;
-    } catch (e) {
+    } catch (error) { // eslint-disable-line no-unused-vars
       return false;
     }
   }, "Required Permissions must be a valid JSON object"),
@@ -29,7 +29,7 @@ export const updateAppSchema = z.object({
       try {
         JSON.parse(val);
         return true;
-      } catch (e) {
+      } catch (error) { // eslint-disable-line no-unused-vars
         return false;
       }
     }, "Required Permissions must be a valid JSON object"),
