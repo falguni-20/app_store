@@ -21,7 +21,6 @@ app.use(helmet());
 app.use(express.json());
 app.use(morgan("dev"));
 
-console.log('Static file path:', path.join(__dirname, '../public'));
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(scopeTenant);
 
