@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api/client";
 import { useAuthStore } from "../store/authStore";
-import { useTenantStore } from "../store/tenantStore";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { FaBuilding, FaUsers, FaCog, FaPlus, FaUserPlus, FaEdit, FaTrashAlt, FaChevronRight, FaArrowLeft } from "react-icons/fa";
@@ -15,21 +14,7 @@ export default function OrganizationAdmin() {
   const navigate = useNavigate();
   const { orgId } = useParams(); // Get orgId from route parameters
   const user = useAuthStore((state) => state.user);
-  const { orgId: currentOrgId, instituteId } = useTenantStore((state) => state);
   const queryClient = useQueryClient();
-
-  // Check if user has access to this organization
-  const hasAccess = user?.organizations?.some(
-    (org) => org.orgId === parseInt(orgId) && (org.role === "ORG_ADMIN" || org.role === "SUPER_ADMIN")
-  );
-
-  if (!hasAccess) {
-    return (
-      <div className="organization-admin-container">
-        <div className="access-denied">Access denied</div>
-      </div>
-    );
-  }
 
   // State for managing tabs and forms
   const [activeTab, setActiveTab] = useState("users"); // users, institutes, apps
@@ -37,34 +22,42 @@ export default function OrganizationAdmin() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("USER");
 
+  // Check if user has access to this organization
+  const hasAccess = user?.organizations?.some(
+    (org) => org.orgId === parseInt(orgId) && (org.role === "ORG_ADMIN" || org.role === "SUPER_ADMIN")
+  );
+
   // Fetch organization details
   const { data: organization, isLoading: isLoadingOrg } = useQuery({
     queryKey: ["organization", orgId],
     queryFn: async () => {
+      if (!hasAccess) return null; // Don't fetch if no access
       const response = await api.get(`/organizations/${orgId}`);
       return response.data;
     },
-    enabled: !!orgId,
+    enabled: !!orgId && hasAccess,
   });
 
   // Fetch organization users
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ["organizationUsers", orgId],
     queryFn: async () => {
+      if (!hasAccess) return []; // Don't fetch if no access
       const response = await api.get(`/organizations/${orgId}/users`);
       return response.data;
     },
-    enabled: !!orgId,
+    enabled: !!orgId && hasAccess,
   });
 
   // Fetch organization institutes
   const { data: institutes = [], isLoading: isLoadingInstitutes } = useQuery({
     queryKey: ["organizationInstitutes", orgId],
     queryFn: async () => {
+      if (!hasAccess) return []; // Don't fetch if no access
       const response = await api.get(`/organizations/${orgId}/institutes`);
       return response.data;
     },
-    enabled: !!orgId,
+    enabled: !!orgId && hasAccess,
   });
 
   // Invite user mutation
@@ -98,6 +91,15 @@ export default function OrganizationAdmin() {
     
     inviteUserMutation.mutate({ email: inviteEmail, role: inviteRole });
   };
+
+  // Check access after hooks are called
+  if (!hasAccess) {
+    return (
+      <div className="organization-admin-container">
+        <div className="access-denied">Access denied</div>
+      </div>
+    );
+  }
 
   // Loading state
   if (isLoadingOrg || isLoadingUsers || isLoadingInstitutes) {

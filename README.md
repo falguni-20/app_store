@@ -92,7 +92,7 @@ Platform Level
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd multi_tenant_app_store
+cd app_store
 ```
 
 2. Install backend dependencies:
@@ -110,13 +110,13 @@ npm install
 4. Set up environment variables:
 ```bash
 # Backend (.env)
-DATABASE_URL="postgresql://username:password@localhost:5432/app_store"
-JWT_SECRET="your-jwt-secret"
-JWT_REFRESH_SECRET="your-refresh-jwt-secret"
-PORT=5000
+DATABASE_URL=
+JWT_SECRET=
+JWT_REFRESH_SECRET=
+PORT=
 
 # Frontend (.env)
-VITE_BASE_URL="http://localhost:5000/api"
+VITE_BASE_URL=
 ```
 
 5. Set up the database:
@@ -257,10 +257,6 @@ npm run dev
 - **POST** `/api/organizations/:orgId/institutes` - Create institute
 - **GET** `/api/organizations/:orgId/users` - Get users in organization
 - **POST** `/api/organizations/:orgId/users/invite` - Invite user to organization
-
-### Analytics
-- **GET** `/api/analytics/apps` - Get installed apps analytics
-- **GET** `/api/analytics/apps/:appId/usage` - Get app usage details
 
 ## Frontend Structure
 

@@ -1,11 +1,10 @@
 import { Navigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
-import { useTenantStore } from "../store/tenantStore"; // Import useTenantStore
 
 export default function ProtectedRoute({ children, adminOnly, orgAdminOnly }) { // Add orgAdminOnly prop
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
-  const { orgId } = useTenantStore((s) => s); // Get selected orgId
+  // const { orgId } = useTenantStore((s) => s); // Get selected orgId (currently unused)
 
   if (!accessToken) {
     return <Navigate to="/login" replace />;
